@@ -7,6 +7,12 @@ import random
 import json
 import numpy as np
 
+# Import paths (for directory management)
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # up 2 levels → Main_Dir
+import paths
+
 
 
 
@@ -14,16 +20,10 @@ import numpy as np
 
 
 # %% Define globals
+dataset_dir = paths.DATASET_DIR
 
-data_dir = os.path.abspath('Data')
-dataset_dir = os.path.join(data_dir, 'dataset')
-
-
-patch_dir = os.path.abspath('Patch_Data')
-patch_dataset_dir = os.path.join(patch_dir, 'dataset')
-
-os.makedirs(patch_dir, exist_ok = True)
-os.makedirs(patch_dataset_dir, exist_ok = True)
+patch_dir = paths.PATCH_DIR
+patch_dataset_dir = paths.PATCH_DATASET_DIR
 
 
 

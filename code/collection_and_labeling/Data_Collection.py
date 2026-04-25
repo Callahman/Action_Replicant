@@ -24,24 +24,17 @@ from collections import deque
 from threading import Thread
 from queue import Queue
 
+# Import paths (for directory management)
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # up 2 levels → Main_Dir
+import paths
+
 
 
 # %% Create Necessary Directories for Data Collection
-os.mkdir('Data', exist_ok=True)
-path = os.path.abspath('Data')
-
-os.mkdir(f'{path}/Images', exist_ok=True)
-img_dir = os.path.abspath('Data/Images/')
-
-os.mkdir(f'{path}/PICKLES', exist_ok=True)
-pickle_dir = os.path.abspath('Data/PICKLES/')
-
-
-
-
-
-
-
+img_dir = paths.IMAGE_DIR
+pickle_dir = paths.PICKLE_DIR
 
 # %% Get the window bounding box for the game
 x = pyautogui.getAllWindows()

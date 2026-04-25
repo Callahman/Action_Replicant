@@ -35,21 +35,20 @@ from copy import deepcopy
 import shutil
 import numpy as np
 
+# Import paths for directory management
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # up 2 levels → Main_Dir
+import paths
 
-data_dir = os.path.abspath('Data')
-img_dir = os.path.join(data_dir, 'Images')
-box_dir = os.path.join(data_dir, 'BBoxes')
 
+img_dir = paths.IMAGE_DIR
+box_dir = paths.BBOX_DIR
 
-dataset_dir = os.path.join(data_dir, 'dataset')
-train_dir = os.path.join(dataset_dir, 'train')
-valid_dir = os.path.join(dataset_dir, 'valid')
-test_dir = os.path.join(dataset_dir, 'test')
-
-os.mkdir(dataset_dir, exists_ok=True)
-os.mkdir(train_dir, exists_ok=True)
-os.mkdir(valid_dir, exists_ok=True)
-os.mkdir(test_dir, exists_ok=True)
+dataset_dir = paths.DATASET_DIR
+train_dir = paths.TRAIN_DIR
+valid_dir = paths.VALID_DIR
+test_dir = paths.TEST_DIR
 
 
 

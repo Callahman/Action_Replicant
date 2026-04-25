@@ -14,6 +14,12 @@ import matplotlib.pyplot as plt
 from rfdetr import RFDETRBase
 from itertools import product
 
+# Import paths (for directory management)
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # up 2 levels → Main_Dir
+import paths
+
 
 
 
@@ -221,9 +227,8 @@ DEVICE = 'cpu'
 
 checkpoint_path = "Patch_Data/dataset/output/checkpoint.pth"
 
-# IMPORTANT: raw string for Windows paths
-# image_dir = r"D:\Python_Projects\Game_Player\Helldivers_II\Data\Images"
-image_dir = r"D:\Python_Projects\Game_Player\Helldivers_II\Data\dataset\valid"
+# image_dir = paths.IMAGE_DIR
+image_dir = paths.VALID_DIR
 
 # =============================================================================
 # sizes = ["small", "medium", "large", "massive"]
@@ -262,7 +267,7 @@ model.model.model = torch.compile(
 
 # ---------------- LOOP FOR PATCH PERFORMANCE ----------------
 # =============================================================================
-# bbox_dir = 'D:\Python_Projects\Game_Player\Helldivers_II\Data\BBoxes'
+# bbox_dir = paths.BBOX_DIR
 # box_files = os.listdir(bbox_dir)
 # np.random.shuffle(box_files)
 # 
@@ -312,7 +317,7 @@ fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=dpi)
 im = None
 ax.axis("off")
 
-bbox_dir = r'D:\Python_Projects\Game_Player\Helldivers_II\Data\BBoxes'
+bbox_dir = paths.BBOX_DIR
 # box_files = os.listdir(bbox_dir)
 # np.random.shuffle(box_files)
 

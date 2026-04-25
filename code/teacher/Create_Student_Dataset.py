@@ -24,6 +24,12 @@ from itertools import product
 import json
 from tqdm import tqdm
 
+# Import paths (for directory management)
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # up 2 levels → Main_Dir
+import paths
+
 
 torch.set_grad_enabled(False)
 
@@ -135,13 +141,9 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 checkpoint_path = "Patch_Data/dataset/output/checkpoint.pth"
 
 # IMPORTANT: raw string for Windows paths
-data_dir = os.path.abspath('Data')
-image_dir = os.path.join(data_dir, 'Images')
-teacher_dir = os.path.join(data_dir, 'Teacher')
-dataset_dir = os.path.join(data_dir, 'dataset')
-
-if 'Teacher' not in os.listdir(data_dir):
-    os.mkdir(os.path.join(data_dir, 'Teacher'))
+image_dir = paths.IMAGE_DIR
+teacher_dir = paths.TEACHER_DIR
+dataset_dir = paths.DATASET_DIR
 
 
 class_names = {

@@ -20,6 +20,12 @@ from bbox_student import BBoxDataset, get_transforms
 from ultralytics import YOLO
 from bbox_student import CustomYoloLoss, CustomYolov8n
 
+# Import paths (for directory management)
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # up 2 levels → Main_Dir
+import paths
+
 # ============================================================
 # Config
 # ============================================================
@@ -40,9 +46,8 @@ LR = 1e-3
 
 
 
-data_dir = os.path.abspath('Data')
-img_dir = os.path.join(data_dir, 'Images')
-teacher_dir = os.path.join(data_dir, 'Teacher')
+img_dir = paths.IMAGE_DIR
+teacher_dir = paths.TEACHER_DIR
 teacher_files = os.listdir(teacher_dir)
 
 # Parameters

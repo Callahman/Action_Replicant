@@ -25,6 +25,12 @@ import torch.nn.functional as F
 from PIL import Image
 from Models.enemy_identifier import Enemy_ID_Dataset, EnemyClassifier
 
+# Walk up to project root and import paths
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+import paths
+
 
 # %% Define functions
 def get_health(img, health_xs = [220, 590], health_y = 1999):
@@ -57,10 +63,8 @@ preprocess = transforms.Compose([
 
 
 # %% Define globals
-
-data_dir = os.path.abspath('Data')
-img_dir = os.path.join(data_dir, 'Images')
-
+data_dir = paths.DATA_DIR
+img_dir = paths.IMAGE_DIR
 
 # %% itterate over a random set of images and plot the images
 

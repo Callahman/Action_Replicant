@@ -16,17 +16,20 @@ from pytorch_lightning.loggers import TensorBoardLogger
 
 from datetime import datetime
 
+# Import paths (for directory management)
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # up 2 levels → Main_Dir
+import paths
+
 
 if __name__ == "__main__":
     
-    data_dir = os.path.abspath("Patch_Data")
-    dataset_dir = os.path.join(data_dir, "dataset")  # directory containing train/, valid/, test/
-    train_dir = os.path.join(dataset_dir, "train")
-    valid_dir = os.path.join(dataset_dir, "valid")
-    test_dir = os.path.join(dataset_dir, "test")
-    
-    os.makedirs(os.path.join(dataset_dir, 'output'), exist_ok = True)
-    output_dir = os.path.join(dataset_dir, 'output')
+    dataset_dir = paths.PATCH_DATASET_DIR
+    train_dir = paths.PATCH_TRAIN_DIR
+    valid_dir = paths.PATCH_VALID_DIR
+    test_dir = paths.PATCH_TEST_DIR
+    output_dir = paths.PATCH_OUTPUT_DIR
     
 
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")+'_dropPath'

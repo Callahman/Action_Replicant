@@ -45,20 +45,21 @@ from typing import List, Tuple
 from rfdetr import RFDETRBase
 import torch
 
+# Import paths for directory management
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parents[2]))  # up 2 levels → Main_Dir
+import paths
+
 
 # %% Define globals
 # IF PRETRAINED HELPER MODEL IS AVAILABLE
 USE_PRETRAINED_MODEL = True
 
-data_dir = os.path.abspath('Data')
-img_dir = os.path.join(data_dir, 'Images')
-
-os.mkdir(os.path.join(data_dir, 'BBoxes'), exist_ok=True)
-box_dir = os.path.join(data_dir, 'BBoxes')
-
-
-dataset_dir = os.path.join(data_dir, "dataset")
-output_dir = os.path.join(dataset_dir, 'output')
+img_dir = paths.IMAGE_DIR
+box_dir = paths.BBOX_DIR
+dataset_dir = paths.DATASET_DIR
+output_dir = paths.OUTPUT_DIR
 
 
 if USE_PRETRAINED_MODEL:
