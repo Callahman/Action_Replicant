@@ -28,7 +28,7 @@ Future Steps:
 
 Usage of this pipeline to create agents that play Helldivers II violates TOS.
 The goal of this project is to:
-- Showcase deep learning knowledge/skills
+- Showcase skills
 - Practice Computer Vision, Deep-learning & Reinforcement Learning concepts
 - Develop an agent that can predict my actions with recorded inputs
     - The agent will not be deployed in a capacity that would violate Helldivers II TOS

@@ -225,7 +225,8 @@ PATCH_SIZE = 896
 # DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 DEVICE = 'cpu'
 
-checkpoint_path = "Patch_Data/dataset/output/checkpoint.pth"
+checkpoint_path = os.path.join(paths.PATCH_OUTPUT_DIR, "checkpoint.pth")
+# checkpoint_path = "Patch_Data/dataset/output/checkpoint.pth"
 
 # image_dir = paths.IMAGE_DIR
 image_dir = paths.VALID_DIR
