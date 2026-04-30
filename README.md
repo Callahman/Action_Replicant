@@ -13,6 +13,7 @@ Completed steps:
 WIP Steps:
 - Hard-coded features for Action-prediction agent
 - Custom Student Library
+    - Need more maliability with training/inference/analysis, so I'm avoiding Ultralytics native training loop
 - Custom Student training loop
 - Improvements to Repo
     - Pipeline Diagram(s) - Mermaid
@@ -23,7 +24,6 @@ Future Steps:
 - Create Action-Replicant Library
 - Create Action-Replicant training loop
 - Evaluate Action-Replicant
-- 
 
 
 Usage of this pipeline to create agents that play Helldivers II violates TOS.
