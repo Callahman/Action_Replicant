@@ -72,17 +72,21 @@ def get_transforms(train=True):
             ),
 
             # Convert to tensor
-            T.ToTensor(),
+            T.ToImage(),
+            T.ToDtype(torch.float32, scale=True),
+            # T.ToTensor(),
         ])
     else:
         transforms = T.Compose([
             T.Resize((640, 360)),
             T.Pad(
-                padding=(0, 280),
+                padding=(140, 0),
                 padding_mode="constant",
                 fill=0
             ),
-            T.ToTensor(),
+            T.ToImage(),
+            T.ToDtype(torch.float32, scale=True),
+            # T.ToTensor(),
         ])
     
     return transforms
@@ -108,15 +112,20 @@ class BBoxDataset(Dataset):
         box_file = self.teacher_files[idx]
         img_file = box_file.replace('teacher.json','screen.jpg')
         
-        data = json.load(open(os.path.join(self.teacher_dir, box_file), 'r'))
+        box_path = os.path.join(self.teacher_dir, box_file)
+        img_path = os.path.join(self.image_dir, img_file)
         
-        
+        data = json.load(open(box_path, 'r'))
         
         labels = torch.tensor(data['class'], dtype=torch.int).unsqueeze(1)
         confs = torch.tensor(data['conf'], dtype=torch.float32).unsqueeze(1)
 
-        img_path = os.path.join(self.image_dir, img_file)
-        image = Image.open(img_path).convert("RGB")
+        try:
+            with Image.open(img_path) as img:
+                image = img.convert("RGB")
+        except:
+            raise OSError(f"Error loading image: {img_path}\nPlease run the Broken_Image_Cleanup script to identify and remove any corrupted data.")
+
         
         boxes = data['coords']
         if boxes:
@@ -141,7 +150,7 @@ class BBoxDataset(Dataset):
         
         # Allocate final tensors
         final_boxes = torch.zeros((self.max_objects, 4), dtype=torch.float32)
-        final_labels = torch.zeros((self.max_objects, 1), dtype=torch.int)-1
+        final_labels = (torch.zeros((self.max_objects, 1), dtype=torch.int)-1)+1 # Pad with -1 and then add 1 so that padded labels are 0 instead of -1
         final_confs = torch.zeros((self.max_objects, 1), dtype=torch.float32)
         
         num_objects = boxes.shape[0]
@@ -221,21 +230,30 @@ class CustomYolov8n(nn.Module):
         super().__init__()
         
         self.backbone = backbone.to(device)
+        self.backbone.eval()
         in_ch = 144
         
         self.p3_head = Head(in_ch, num_classes).to(device)
         self.p4_head = Head(in_ch, num_classes).to(device)
         self.p5_head = Head(in_ch, num_classes).to(device)
+
+    def train(self, mode=True):
+        # Override train() to never put backbone in train mode
+        super().train(mode)
+        self.backbone.eval()  # Always force backbone back to eval
+        return self
+
         
     def forward(self, img):
         p3, p4, p5 = self.backbone(img)[1]
+
         p3 = self.p3_head(p3)
         p4 = self.p4_head(p4)
         p5 = self.p5_head(p5)
 
-        p3 = p3.reshape(p3.shape[0], p3.shape[1], p3.shape[2] * p3.shape[3])
-        p4 = p4.reshape(p4.shape[0], p4.shape[1], p4.shape[2] * p4.shape[3])
-        p5 = p5.reshape(p5.shape[0], p5.shape[1], p5.shape[2] * p5.shape[3])
+        p3 = p3.view(p3.shape[0], p3.shape[1], p3.shape[2] * p3.shape[3])
+        p4 = p4.view(p4.shape[0], p4.shape[1], p4.shape[2] * p4.shape[3])
+        p5 = p5.view(p5.shape[0], p5.shape[1], p5.shape[2] * p5.shape[3])
 
         final_head = torch.cat([p3, p4, p5], dim=2)
         return final_head, (p3, p4, p5)
@@ -293,7 +311,7 @@ class CustomYoloLoss:
         B, C, X = pred_cls.shape
         Y = tgt_boxes.shape[1]
 
-        valid_gt = (tgt_cls >= 0) # Padded classes with -1
+        valid_gt = (tgt_cls > 0) # Padded classes with 0
 
         iou = self.pairwise_iou(pred_boxes, tgt_boxes, eps=eps)  # [B, X, Y]
 
@@ -364,6 +382,12 @@ class CustomYoloLoss:
         target_classes: [B, 1] (class indices)
         """
 
+        if target_boxes.shape[1] == 0:
+            # No GT boxes, return empty matches
+            matched = torch.zeros((pred_boxes.shape[0], pred_boxes.shape[2]), dtype=torch.bool, device=pred_boxes.device)
+            gt_idx = torch.zeros((pred_boxes.shape[0], pred_boxes.shape[2]), dtype=torch.long, device=pred_boxes.device)
+            return matched, gt_idx
+
         # 1. IoU Matrix & Alignment Scores
         score, iou, valid_gt = self.alignment_score(pred_boxes, pred_classes, target_boxes, target_classes, alpha, beta, eps) # [B, X, Y]
 
@@ -381,12 +405,48 @@ class CustomYoloLoss:
         
         return matched, gt_idx
     
+    def gt_assignment(self, matched, gt_idx, pred_boxes, target_boxes, pred_classes, target_classes, target_confs = None):
+        """
+        Take the target-prediction matching from TAL, and select the corresponding boxes, classes, and confidence scores for loss calculation.
+        Returns tesnors of shape (Num_Matched, {classes / 4 for boxes / 1 for confs or class indeces})
+        """
+        # Select matched GT boxes, and align with target dims for loss calculation
+        gather_idx = gt_idx.unsqueeze(1).expand(-1, 4, -1)
+        target_boxes = target_boxes.gather(2, gather_idx)
+        mask = matched.unsqueeze(1).expand(-1, 4, -1)
+        target_boxes = target_boxes[mask].view(-1, 4)
+
+        # Select corresponding predicted boxes
+        pred_boxes = pred_boxes[mask].view(-1, 4)
+
+        # Select the corresponding predicted boxes for those GTs
+        B, C, N = pred_classes.shape
+        target_classes = target_classes.gather(1, gt_idx).clamp(min=0)
+        one_hot = torch.zeros(B, N, C, device=pred_classes.device)
+        one_hot.scatter_(2, target_classes.unsqueeze(2), 1.0)
+        one_hot = one_hot.permute(0, 2, 1)
+        target_classes = one_hot * matched.unsqueeze(1).float()
+
+        # If confidence is being used, select matched confidence scores
+        if target_confs is not None:
+            target_confs = target_confs.gather(1, gt_idx)[matched].view(-1, 1)
+
+            target_confs = target_confs.gather(1, gt_idx).clamp(min=0)
+            one_hot = torch.zeros(B, N, C, device=pred_classes.device)
+            one_hot.scatter_(2, target_confs.unsqueeze(2), 1.0)
+            one_hot = one_hot.permute(0, 2, 1)
+            target_confs = one_hot * matched.unsqueeze(1).float()
+
+        return pred_boxes, target_boxes, pred_classes, target_classes, target_confs
     
-    def ciou_loss(self,pred_boxes, target_boxes):
+    
+    def ciou_loss(self, pred_boxes, target_boxes):
         """
         pred_boxes and target_boxes must both be (B, 4, N) in (xc, yc, w, h) format normalized to [0,1]
         B = Batch size, N = Number of boxes
         """
+        if pred_boxes.shape[0] == 0:
+            return torch.tensor(0.0, device=pred_boxes.device)
 
         pred, target = self.to_xyxy(pred_boxes), self.to_xyxy(target_boxes)
     
@@ -426,3 +486,23 @@ class CustomYoloLoss:
         
         ciou = iou - (center_dist / enc_diag) - alpha * v
         return (1 - ciou).mean()
+    
+
+    def focal_loss(self, pred_classes, target_classes, gamma=2.0, target_confs = None):
+        if target_confs is not None:
+            target_classes = target_classes * target_confs
+
+        bce = F.binary_cross_entropy_with_logits(pred_classes, target_classes, reduction='none')
+        p = torch.sigmoid(pred_classes)
+        pt = target_classes * p + (1 - target_classes) * (1 - p)  # prob of correct class
+        focal_weight = (1 - pt) ** gamma
+        return (focal_weight * bce).mean()
+    
+
+    def loss(self, pred_boxes, target_boxes, pred_classes, target_classes, lambda_box=7.5, lambda_cls=0.5, target_confs = None):
+        ciou = self.ciou_loss(pred_boxes, target_boxes)
+        focal = self.focal_loss(pred_classes, target_classes, target_confs=target_confs)
+        loss = lambda_box * ciou + lambda_cls * focal
+        return loss, ciou, focal
+    
+    

@@ -12,6 +12,14 @@ Steps:
 
 Note: This process can be extremely time consuming, as it runs inference across the whole dataset.
     Even with batching and GPU acceleration it can take tens of hours depending on your dataset size
+
+Future optimizations to consider:
+    - Implement multiprocessing to load images
+    - Implement batch-wise patching and remove for-loops. Replace with vectorization (striding window) to generate patches
+
+Batch size capped at 6 images per batch
+GPU (4090) memeory usage caps at 6 images w/ 896x896 patch size & 20% overlap between patches
+Roughly nets to 54 patches per batch
 """
 
 
@@ -138,11 +146,11 @@ def run_batch_inference(image_paths):
 PATCH_SIZE = 896
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-checkpoint_path = "Patch_Data/dataset/output/checkpoint.pth"
+checkpoint_path = os.path.join(paths.PATCH_OUTPUT_DIR, "checkpoint.pth")
 
 # IMPORTANT: raw string for Windows paths
 image_dir = paths.IMAGE_DIR
-teacher_dir = paths.TEACHER_DIR
+teacher_dir = paths.TEACHER_DATA_DIR
 dataset_dir = paths.DATASET_DIR
 
 
@@ -181,16 +189,17 @@ model.model.model = torch.compile(
 # ---------------- LOAD TRUE LABELS ----------------
 true_labels = {}
 for d in ['train','test','valid']:
+    print(f'\nLoading true labels from: {d}')
     yml = json.load(open(os.path.join(dataset_dir, d, '_annotations.yolo.json'),'r'))
     
     temp = {}
-    for a in yml['annotations']:
+    for a in tqdm(yml['annotations']):
         if a['image_id'] in list(temp.keys()):
             temp[a['image_id']].append(a)
         else:
             temp[a['image_id']] = [a]
             
-    for i in yml['images']:
+    for i in tqdm(yml['images']):
         if i['id'] in list(temp.keys()):
             true_labels[i['file_name']] = {
                 'annotations':temp[i['id']],
@@ -212,21 +221,25 @@ for d in ['train','test','valid']:
 
 
 
-# ---------------- LOOP ----------------
-teacher_files = os.listdir(teacher_dir)
+# Refine list of files to process - only those that don't have labels yet
+print('Prepping teacher label list')
+og_teacher_files = set(os.listdir(teacher_dir))
+og_img_files = os.listdir(image_dir)
 
-img_files = os.listdir(image_dir)
-np.random.shuffle(img_files)
+teacher_files = []
+img_files = []
+for fname in tqdm(og_img_files):
+    teacher_file = fname.replace('screen.jpg','teacher.json')
+    if teacher_file not in og_teacher_files:
+        teacher_files.append(teacher_file)
+        img_files.append(fname)
 
+
+# Run trough dataset and generate teacher labels (patch image, run inference, coalate result, save to teacher data dir)
+print('Running batch inference')
 batch_paths = []
 batch_teacher_files = []
-for fname in tqdm(img_files):
-    
-    teacher_file = fname.replace('screen.jpg','teacher.json')
-    
-    if teacher_file in teacher_files:
-        continue
-    
+for fname, teacher_file in tqdm(zip(img_files, teacher_files), total=len(img_files)):
     
     ### Check for true labels, use those if available
     if fname in list(true_labels.keys()):

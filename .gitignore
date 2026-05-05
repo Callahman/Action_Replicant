@@ -3,3 +3,5 @@
 yolov8n.pt
 code/student/__pycache__/bbox_student.cpython-311.pyc
 __pycache__/paths.cpython-311.pyc
+code/collection_and_labeling/validated_images.txt
+__pycache__/paths.cpython-311.pyc

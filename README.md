@@ -11,14 +11,14 @@ Completed steps:
     - "Real-time" inference for performance evaluation
 
 WIP Steps:
-- Hard-coded features for Action-prediction agent
-- Custom Student Library
-    - Need more maliability with training/inference/analysis, so I'm avoiding Ultralytics native training loop
-- Custom Student training loop
+- Move class names into a seed file in code/data
+    - Standardizes class references and reduces the need for it to be coded in everywhere
+    - Also makes it easier for others to change the code for their custom replicant pipelines
+- Image parsed features for Action-prediction agent
 - Improvements to Repo
     - Pipeline Diagram(s) - Mermaid
-    - Visualization of RFDETR performance
-    - RFDETR aggregate performance (Avg Precision: IoU All/Small [0.5:0.95, 0.5, 0.75])
+    - Visualization of RFDETR & YOLO performance
+    - RFDETR & YOLO aggregate performance (Avg Precision: IoU All/Small [0.5:0.95, 0.5, 0.75])
 
 Future Steps:
 - Create Action-Replicant Library

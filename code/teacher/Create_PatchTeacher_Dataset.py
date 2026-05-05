@@ -1,3 +1,17 @@
+"""
+This process takes the original image dataset and pre-processes all the images for the teacher training
+The pre-processing speeds up training time and reduces the work needed to create a custom transform
+
+For each image:
+    - Establish a fixed grid of slightly overlapping pathches, save these as new images
+    - For each object in the image, create a patch around the object
+        - This is done so empty images don't dominate the training dataset
+        - A jitter is applied around the object to prevent overfitting to perfectly centered objects
+    - For each new patch, create a COCO-style (native for RFDETR) annotation for the bounding boxes
+        - Box locations are updated based on their position within the new patched image
+"""
+
+
 # %% Import libraries
 import os
 from PIL import Image

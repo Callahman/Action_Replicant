@@ -17,33 +17,34 @@ teacher_files = os.listdir(teacher_dir)
 np.random.shuffle(teacher_files)
 # teacher_files = teacher_files[:10] # for quick testing
 
+# teacher_files = ['2025_11_13_02_39_21_186996_teacher.json']
+
+
 transform = bbox_student.get_transforms(train=True)
 ds = bbox_student.BBoxDataset(teacher_files, teacher_dir, img_dir, transform=transform)
+dl = torch.utils.data.DataLoader(ds, batch_size=3, shuffle=False)
 
 
 model = bbox_student.CustomYolov8n(num_classes=12)
-model.eval()
+model.train()
+
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
 CIOU = bbox_student.CustomYoloLoss().ciou_loss
+FocalLoss = bbox_student.CustomYoloLoss().focal_loss
 tal = bbox_student.CustomYoloLoss().TAL
 
 count = 0
-for batch in ds:
+for batch in dl:
+    optimizer.zero_grad()
     img, x = batch
 
-    bbox = x['boxes'].unsqueeze(0)
-    labels = x['labels'].unsqueeze(0)
-    confs = x['confs'].unsqueeze(0)
+    bbox = x['boxes']
+    labels = x['labels']
+    confs = x['confs']
 
-
-    ####################################################################### TEMP
-    if torch.sum(labels >= 0) == 0:
-        continue
-    ####################################################################### TEMP
-
-    with torch.no_grad():
-        img = img.cuda() if torch.cuda.is_available() else img
-        yhat = model(img.unsqueeze(0))
+    img = img.cuda() if torch.cuda.is_available() else img
+    yhat = model(img)
 
     head, (p3, p4, p5) = yhat
 
@@ -53,33 +54,26 @@ for batch in ds:
     target_boxes = bbox.cuda() if torch.cuda.is_available() else bbox
     target_boxes = target_boxes.permute(0, 2, 1)  # [B, 4, Y]
     target_classes = labels.cuda() if torch.cuda.is_available() else labels
+    target_confs = confs.cuda() if torch.cuda.is_available() else confs
 
+    # Match predicted boxes to ground truth boxes using TAL and refine to just matches
     matched, gt_idx = tal(yhat_boxes, yhat_classes, target_boxes, target_classes)
+    # yhat_boxes, target_boxes, yhat_classes, target_classes, target_confs = bbox_student.CustomYoloLoss().gt_assignment(matched, gt_idx, yhat_boxes, target_boxes, yhat_classes, target_classes, target_confs)
+    yhat_boxes, target_boxes, yhat_classes, target_classes, target_confs = bbox_student.CustomYoloLoss().gt_assignment(matched, gt_idx, yhat_boxes, target_boxes, yhat_classes, target_classes)
+        
+    print(yhat_boxes.shape, target_boxes.shape, yhat_classes.shape, target_classes.shape)
 
-
-
-    #######################################################################
-    ### Evaluate that this is correctly matching pred to gt
-    ### Concern: The reshape may cause issues later when batch_size > 1
-    ### Test with dataloader
-    print(torch.sum(matched))
-    print(yhat_boxes.shape, target_boxes.shape)
-    matched_gt = gt_idx[matched]
-    print(matched_gt.shape, matched.shape)
-    training_boxes = target_boxes[:, :, matched_gt].reshape(-1, 4)
-    yhat_boxes = yhat_boxes.permute(0, 2, 1)[matched]
-    print(yhat_boxes.shape, target_boxes.shape)
-    
     # Test CIOU loss
-    if torch.sum(labels >= 0) == 0:
-        ciou_loss = torch.tensor(0.0)
-    else:
-        print(yhat_boxes.shape, training_boxes.shape)
-        ciou_loss = CIOU(yhat_boxes, training_boxes)
+    ciou_loss = CIOU(yhat_boxes, target_boxes)
     
-    # Test BCELoss + BCE penalty on NON-Matched boxes
-    # Will also need to implement some measure of teacher confidence to weight the loss contribution of each box
+    # Test FocalLoss
+    focal_loss = FocalLoss(yhat_classes, target_classes, gamma=2.0)
 
-    print(ciou_loss)
+    loss = ciou_loss * 7.5 + focal_loss * 0.5
+    print(loss.item(), '\t', ciou_loss.item(), '\t', focal_loss.item())
+    loss.backward()
+    optimizer.step()
 
-    break
+    count+=1
+    if count >= 100:
+        break
