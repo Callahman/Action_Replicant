@@ -31,16 +31,17 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))  # up 2 levels → Mai
 import paths
 
 
-
-# %% Create Necessary Directories for Data Collection
+# Globals
 img_dir = paths.IMAGE_DIR
 pickle_dir = paths.PICKLE_DIR
+target = "HELLDIVERS"
+n_images = 10 # Number of images to track and purge on interrupt
+
 
 # %% Get the window bounding box for the game
 x = pyautogui.getAllWindows()
 
 # Default to HELLDIVERS as that is the focus of this repo, could be changed for other games/applications
-target = "HELLDIVERS"
 for y in x:
     title = y.title
     
@@ -148,35 +149,63 @@ if __name__ == "__main__":
     
     start_time = time()
     img_count = len(os.listdir(img_dir))
-    while True:
-        
-        current_time = time()
-        img_id = strftime('%Y_%m_%d_%H_%M_%S', gmtime(current_time))
-        microseconds = int((current_time % 1) * 1e6)
-        img_id += f'_{microseconds:06d}'
-        
-    
-        ### Resize Main Image
-        img = np.array(sct.grab(bounding_box))[:,:,:3]
-        img = cv2.resize(img, (x_resize, y_resize))
-        
-        
-        # Package the latest batch of data
-        x = save_data()
-        
-        
-        
-        # Save data
-        save_queue.put((img, img_id, x))
-        
-        
-        now = time()
-        if now - last_frame < frame_time:
-            sleep(frame_time - (now - last_frame))
-        last_frame = time()
-        
-        img_count += 1
-        if img_count % 100 == 0:
-            print(f'{img_count} images so far')
 
+    try:
+        last_n_images = deque(maxlen=n_images)
+        while True:
+            
+            current_time = time()
+            img_id = strftime('%Y_%m_%d_%H_%M_%S', gmtime(current_time))
+            microseconds = int((current_time % 1) * 1e6)
+            img_id += f'_{microseconds:06d}'
+            
+        
+            ### Resize Main Image
+            img = np.array(sct.grab(bounding_box))[:,:,:3]
+            img = cv2.resize(img, (x_resize, y_resize))
+            
+            
+            # Package the latest batch of data
+            x = save_data()
+            
+            
+            
+            # Save data
+            last_n_images.append(img_id)
+            save_queue.put((img, img_id, x))
+            
+            
+            now = time()
+            if now - last_frame < frame_time:
+                sleep(frame_time - (now - last_frame))
+            last_frame = time()
+            
+            img_count += 1
+            if img_count % 100 == 0:
+                print(f'{img_count} images so far')
 
+    except KeyboardInterrupt:
+        print('\nShutting down...')
+
+        # 1. Stop listeners immediately so no new events are recorded
+        keyboard_listener.stop()
+        mouse_listener.stop()
+
+        # 2. Drain the save queue — wait for in-flight writes to finish
+        save_queue.join()
+
+        # 3. Delete the last n captured image/pickle pair (incomplete at interrupt time)
+        for last_img_id in last_n_images:
+            if last_img_id is not None:
+                img_path = Path(img_dir) / f'{last_img_id}_screen.jpg'
+                pkl_path = Path(pickle_dir) / f'{last_img_id}.pickle'
+                for p in (img_path, pkl_path):
+                    if p.exists():
+                        p.unlink()
+                        print(f'Deleted incomplete file: {p.name}')
+
+        # 4. Signal the save worker to exit cleanly
+        save_queue.put((None, None, None))
+
+        print('Process cleared successfully.')
+        print(f'{img_count} total frames captured.')

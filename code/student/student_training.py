@@ -31,7 +31,7 @@ class_names = [f"{s}_{t}" for s in sizes for t in types]
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 256
-NUM_WORKERS = 4
+NUM_WORKERS = 2
 PREFETCH_FACTOR = 4
 NUM_CLASSES = len(class_names)
 # MAX_OBJECTS = 40
